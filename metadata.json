@@ -1,0 +1,6 @@
+{
+  "name": "Mas Tolong - PWA Transportasi & Jasa Kertosono Jombang",
+  "description": "Aplikasi PWA Transportasi & Jastip Kertosono - Jombang: Ojek Motor, Express, Jastip Kuliner & Pasar dengan kalkulator tarif akurat, peta rute GPS, verifikasi mitra driver, dan kontrol panel admin.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
