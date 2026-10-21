@@ -1,5 +1,24 @@
-"scripts": {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview"
+{
+  "name": "OJEK SERBA BISA - MAS TOLONG MAS SOLUSINYA!!!",
+  "short_name": "Ojek Serba Bisa",
+  "description": "Aplikasi PWA Transportasi & Jastip: Ojek Motor, Antar Paket, Jastip Makanan & Pasar Kertosono - Jombang",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFC107",
+  "icons": [
+    {
+      "src": "/assets/aistudio/Maskot_Ojek_Serba_Bisa_Mas_Tolong_67e2d33f.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/aistudio/Maskot_Ojek_Serba_Bisa_Mas_Tolong_67e2d33f.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
 }
