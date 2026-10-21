@@ -3,59 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Ojek Serba Bisa - Mas Tolong Mas</title>
-    <!-- Tailwind CSS untuk Desain -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React & ReactDOM CDN -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <title>Ojek Serba Bisa</title>
   </head>
-  <body class="bg-slate-100 text-slate-800 min-h-screen pb-12">
-    <div id="root">
-      <!-- Tampilan Sementara Saat Memuat -->
-      <div class="flex flex-col items-center justify-center min-h-screen p-6 text-center">
-        <div class="bg-blue-600 text-white font-bold px-6 py-4 rounded-2xl shadow-lg mb-4 text-xl">
-          🚀 OJEK SERBA BISA
-        </div>
-        <p class="text-slate-600 font-medium">Memuat aplikasi Mas Tolong Mas Solusinya...</p>
-      </div>
-    </div>
-
-    <script>
-      // Render langsung aplikasi
-      const e = React.createElement;
-      function AppPreview() {
-        return e('div', { className: 'max-w-md mx-auto px-4 pt-4' },
-          e('div', { className: 'bg-white rounded-3xl shadow-xl p-6 text-center border border-slate-200 mt-6' },
-            e('h1', { className: 'text-2xl font-black text-blue-600 mb-2' }, 'OJEK SERBA BISA'),
-            e('p', { className: 'text-xs font-bold text-slate-500 uppercase tracking-wider mb-6' }, 'Mas Tolong Mas Solusinya!!'),
-            e('div', { className: 'space-y-3' },
-              e('a', { 
-                href: '#', 
-                onClick: (ev) => { ev.preventDefault(); alert('Fitur Antar Orang siap digunakan!'); },
-                className: 'block w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 px-4 rounded-2xl shadow transition'
-              }, '🛵 Antar Orang'),
-              e('a', { 
-                href: '#', 
-                onClick: (ev) => { ev.preventDefault(); alert('Fitur Kirim Paket siap digunakan!'); },
-                className: 'block w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-2xl shadow transition'
-              }, '📦 Kirim Paket'),
-              e('a', { 
-                href: '#', 
-                onClick: (ev) => { ev.preventDefault(); alert('Fitur Titip Makanan siap digunakan!'); },
-                className: 'block w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3.5 px-4 rounded-2xl shadow transition'
-              }, '🍔 Titip Makanan'),
-              e('a', { 
-                href: '#', 
-                onClick: (ev) => { ev.preventDefault(); alert('Fitur Belanja Pasar siap digunakan!'); },
-                className: 'block w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 px-4 rounded-2xl shadow transition'
-              }, '🛒 Belanja Pasar')
-            ),
-            e('div', { className: 'mt-6 pt-6 border-t border-slate-100 text-xs text-slate-400 font-semibold' }, 'Terhubung ke Vercel dengan Sukses ✅')
-          )
-        );
-      }
-      ReactDOM.createRoot(document.getElementById('root')).render(e(AppPreview));
-    </script>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
