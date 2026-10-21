@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mas Tolong - PWA Transportasi & Jasa Kertosono Jombang</title>
+    
+    <!-- PWA Meta Tags & Theme Color -->
+    <meta name="theme-color" content="#FFC107">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="data:application/json,{
+        &quot;name&quot;: &quot;Mas Tolong Kertosono&quot;,
+        &quot;short_name&quot;: &quot;Mas Tolong&quot;,
+        &quot;start_url&quot;: &quot;.&quot;,
+        &quot;display&quot;: &quot;standalone&quot;,
+        &quot;background_color&quot;: &quot;#ffffff&quot;,
+        &quot;theme_color&quot;: &quot;#FFC107&quot;
+    }">
+
+    <!-- Tailwind CSS CDN & FontAwesome -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet OpenStreetMap CDN -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Firebase SDK (Version 9.22.0 Compat) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+    <style>
+        /* Custom Styles & Layout Variants */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f3f4f6;
+            touch-action: manipulation;
+        }
+        
+        /* Layout Style Variants */
+        .layout-modern .card-ui { border-radius: 1rem; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); }
+        .layout-compact .card-ui { border-radius: 0.375rem; padding: 0.75rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .layout-bold .card-ui { border-radius: 0.5rem; border: 2px solid #000; box-shadow: 4px 4px 0px #000; }
+
+        /* Teks Hitam Tebal Khusus Kotak Tagihan Kuning */
+        .bill-box-yellow {
+            background-color: #FFDE59 !important;
+            border: 2px solid #000000 !important;
+            color: #000000 !important;
+            font-weight: 900 !important;
+        }
+
+        #map { height: 220px; width: 100%; border-radius: 0.75rem; }
+    </style>
+</head>
+<body class="layout-modern text-gray-800 antialiased min-h-screen pb-12">
+
+    <!-- HEADER / NAVIGATION BAR WITH DYNAMIC LOGO -->
+    <header class="bg-amber-400 text-slate-900 sticky top-0 z-40 shadow-md">
+        <div class="max-w-md mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <img id="app-logo-header" src="https://via.placeholder.com/40/000000/FFFFFF?text=MT" alt="Logo Mas Tolong" class="h-10 w-10 rounded-full border-2 border-black object-cover">
+                <div>
+                    <h1 class="font-extrabold text-lg tracking-tight leading-none">MAS TOLONG</h1>
+                    <p class="text-xs font-semibold text-slate-800">Kertosono - Jombang</p>
+                </div>
+            </div>
+            <div id="user-role-badge" class="hidden">
+                <!-- Dynamic Badge Role -->
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTAINER -->
+    <main class="max-w-md mx-auto px-4 pt-4">
+
+        <!-- ==================== 1. MODUL AUTHENTICATION (LOGIN / REGISTER) ==================== -->
+        <section id="sec-auth" class="card-ui bg-white p-6 rounded-2xl shadow-lg border border-gray-100">
+            <div class="text-center mb-6">
+                <img id="app-logo-auth" src="https://via.placeholder.com/80/000000/FFFFFF?text=MAS+TOLONG" alt="Logo App" class="h-20 w-20 mx-auto rounded-full mb-3 border-2 border-amber-400 object-cover shadow">
+                <h2 class="text-xl font-black text-gray-900">Masuk / Daftar Akun</h2>
+                <p class="text-xs text-gray-500">Layanan Ojek, Express, Food & Jastip Pasar Terpadu</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="flex border-b mb-4">
+                <button onclick="switchAuthTab('login')" id="tab-btn-login" class="flex-1 py-2 font-bold border-b-2 border-amber-500 text-amber-600">Login</button>
+                <button onclick="switchAuthTab('reg-customer')" id="tab-btn-reg-cust" class="flex-1 py-2 font-bold text-gray-400 border-b-2 border-transparent">Daftar Pelanggan</button>
+                <button onclick="switchAuthTab('reg-driver')" id="tab-btn-reg-drv" class="flex-1 py-2 font-bold text-gray-400 border-b-2 border-transparent">Daftar Driver</button>
+            </div>
+
+            <!-- Form 1: LOGIN -->
+            <form id="form-login" onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">No. WhatsApp / ID Admin</label>
+                    <input type="text" id="login-id" placeholder="Contoh: 081234567890" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Kata Sandi / Password</label>
+                    <input type="password" id="login-pass" placeholder="••••••••" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <button type="submit" class="w-full bg-amber-400 hover:bg-amber-500 font-extrabold text-slate-900 py-2.5 rounded-lg shadow transition">
+                    MASUK KANTONG
+                </button>
+            </form>
+
+            <!-- Form 2: DAFTAR PELANGGAN BARU (Cepat & Praktis) -->
+            <form id="form-reg-customer" onsubmit="handleRegisterCustomer(event)" class="space-y-4 hidden">
+                <div class="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-xs text-amber-800">
+                    ⚡ <strong>Pendaftaran Cepat:</strong> Cukup masukan Nama Asli & No. WhatsApp aktif untuk langsung memesan layanan.
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Nama Lengkap / Nama Asli</label>
+                    <input type="text" id="cust-name" placeholder="Nama Asli Anda" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Nomor WhatsApp Aktif</label>
+                    <input type="tel" id="cust-phone" placeholder="08xxxxxxxxxx" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Password Baru</label>
+                    <input type="password" id="cust-pass" placeholder="Minimal 6 karakter" required class="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+                <button type="submit" class="w-full bg-slate-900 hover:bg-black font-extrabold text-white py-2.5 rounded-lg shadow transition">
+                    DAFTAR SEKARANG
+                </button>
+            </form>
+
+            <!-- Form 3: DAFTAR MITRA DRIVER BARU (Standar Berkas KTP, STNK, SIM C, SKCK) -->
+            <form id="form-reg-driver" onsubmit="handleRegisterDriver(event)" class="space-y-3 hidden">
+                <div class="bg-blue-50 p-2.5 rounded-lg border border-blue-200 text-xs text-blue-900">
+                    🛵 <strong>Pendaftaran Mitra Driver:</strong> Siapkan Foto E-KTP, STNK, SIM C, dan SKCK fisik Anda.
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700">Nama Lengkap (Sesuai KTP)</label>
+                    <input type="text" id="drv-name" required class="w-full px-2.5 py-1.5 border rounded-lg text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700">NIK (16 Digit KTP)</label>
+                        <input type="text" id="drv-nik" maxlength="16" required class="w-full px-2.5 py-1.5 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700">No. WhatsApp</label>
+                        <input type="tel" id="drv-phone" required class="w-full px-2.5 py-1.5 border rounded-lg text-sm">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700">Plat Motor</label>
+                        <input type="text" id="drv-plat" placeholder="AG 1234 XX" required class="w-full px-2.5 py-1.5 border rounded-lg text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-gray-700">No. SIM C</label>
+                        <input type="text" id="drv-sim" required class="w-full px-2.5 py-1.5 border rounded-lg text-sm">
+                    </div>
+                </div>
+                <!-- Document Upload Inputs Base64 -->
+                <div>
+                    <label class="block text-xs font-bold text-gray-700">Foto E-KTP Asli</label>
+                    <input type="file" id="file-ktp" accept="image/*" required class="w-full text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700">Foto STNK Motor</label>
+                    <input type="file" id="file-stnk" accept="image/*" required class="w-full text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700">Foto SIM C Aktif</label>
+                    <input type="file" id="file-sim" accept="image/*" required class="w-full text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700">Foto SKCK Resmi</label>
+                    <input type="file" id="file-skck" accept="image/*" required class="w-full text-xs">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700">Password Akun</label>
+                    <input type="password" id="drv-pass" required class="w-full px-2.5 py-1.5 border rounded-lg text-sm">
+                </div>
+                <div class="flex items-start space-x-2 text-xs text-gray-600">
+                    <input type="checkbox" id="drv-agree" required class="mt-1">
+                    <label for="drv-agree">Saya menyetujui aturan komisi platform 10%, kejujuran berkas, dan sistem saldo deposit.</label>
+                </div>
+                <button type="submit" class="w-full bg-slate-900 hover:bg-black font-extrabold text-white py-2.5 rounded-lg shadow transition">
+                    KIRIM BERKAS DRIVER
+                </button>
+            </form>
+        </section>
+
+
+        <!-- ==================== 2. DASBOR PELANGGAN ==================== -->
+        <section id="sec-customer-dashboard" class="hidden space-y-4">
+            <!-- User Welcome Banner -->
+            <div class="bg-gradient-to-r from-amber-400 to-amber-500 p-4 rounded-xl shadow text-slate-900 flex justify-between items-center">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider opacity-80">Pelanggan Setia</p>
+                    <h3 id="cust-welcome-name" class="text-lg font-black leading-tight">Halo, Pelanggan!</h3>
+                </div>
+                <button onclick="toggleCustomerProfileModal()" class="bg-white/30 hover:bg-white/50 text-slate-900 text-xs px-3 py-1.5 rounded-lg font-bold border border-black/10">
+                    🛡️ Pengaturan & E-KTP
+                </button>
+            </div>
+
+            <!-- Choice Service Cards -->
+            <div class="card-ui bg-white p-4 rounded-xl shadow border border-gray-100">
+                <h4 class="font-extrabold text-sm mb-3 text-gray-800">Pilih Layanan Transportasi & Jastip:</h4>
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="selectService('OJEK')" id="srv-btn-OJEK" class="srv-choice-btn border-2 border-amber-400 bg-amber-50 p-2.5 rounded-xl flex flex-col items-center">
+                        <span class="text-2xl mb-1">🛵</span>
+                        <span class="text-[11px] font-black">Ojek Motor</span>
+                    </button>
+                    <button onclick="selectService('EXPRESS')" id="srv-btn-EXPRESS" class="srv-choice-btn border-2 border-gray-200 p-2.5 rounded-xl flex flex-col items-center">
+                        <span class="text-2xl mb-1">📦</span>
+                        <span class="text-[11px] font-black">Express Kirim</span>
+                    </button>
+                    <button onclick="selectService('FOOD')" id="srv-btn-FOOD" class="srv-choice-btn border-2 border-gray-200 p-2.5 rounded-xl flex flex-col items-center">
+                        <span class="text-2xl mb-1">🍜</span>
+                        <span class="text-[11px] font-black">Jastip Kuliner</span>
+                    </button>
+                    <button onclick="selectService('SHOP')" id="srv-btn-SHOP" class="srv-choice-btn border-2 border-gray-200 p-2.5 rounded-xl flex flex-col items-center">
+                        <span class="text-2xl mb-1">🛒</span>
+                        <span class="text-[11px] font-black">Jastip Pasar</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Address Input Form & Tariff Calculation -->
+            <div class="card-ui bg-white p-4 rounded-xl shadow border border-gray-100 space-y-3">
+                <div class="text-xs bg-amber-100 border-l-4 border-amber-500 text-amber-900 p-2 rounded">
+                    <strong>🛵 Skema Tarif Ojek Serba Bisa:</strong><br>
+                    • Minimum 0 - 3 km pertama: <strong>Rp 6.000</strong><br>
+                    • Di atas 3 km: <strong>+Rp 2.500 / km</strong><br>
+                    <span id="tariff-jastip-note" class="hidden">• Jastip Belanja Pasar / Sembako: <strong>+Rp 3.000</strong> (Antre & Belanja)</span>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">📍 Titik Penjemputan / Nama Toko Warung</label>
+                    <input type="text" id="order-pickup-input" placeholder="Ketik lokasi / nama toko..." oninput="autoSuggestAddress(this.value, 'pickup')" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">🎯 Titik Pengantaran / Tujuan Anda</label>
+                    <input type="text" id="order-dropoff-input" placeholder="Ketik alamat tujuan..." oninput="autoSuggestAddress(this.value, 'dropoff')" class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-400 outline-none">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">📝 Catatan / Rincian Belanjaan (Opsional)</label>
+                    <textarea id="order-notes-input" rows="2" placeholder="Contoh: Beli beras 5kg & minyak goreng di Pasar Kertosono..." class="w-full px-3 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-amber-400 outline-none"></textarea>
+                </div>
+
+                <!-- Leaflet Interactive Map -->
+                <div id="map" class="shadow-inner border"></div>
+
+                <!-- Promo Voucher Input -->
+                <div class="flex space-x-2">
+                    <input type="text" id="order-voucher-code" placeholder="Kode Voucher Promo" class="uppercase px-3 py-1.5 border rounded-lg text-xs flex-1">
+                    <button onclick="applyVoucherCode()" class="bg-gray-900 text-white font-bold text-xs px-3 py-1.5 rounded-lg">Klaim</button>
+                </div>
+
+                <!-- Estimated Distance & Total Bill Display -->
+                <div class="bill-box-yellow p-3 rounded-xl flex justify-between items-center text-sm shadow">
+                    <div>
+                        <p class="text-xs uppercase tracking-wider font-extrabold text-black">Estimasi Total Ongkir:</p>
+                        <p id="calc-distance-text" class="text-xs font-bold text-gray-800">Estimasi Jarak: 2.5 km</p>
+                    </div>
+                    <div class="text-right">
+                        <span id="calc-total-ongkir" class="text-xl font-black text-black">Rp 6.000</span>
+                    </div>
+                </div>
+
+                <button onclick="submitNewOrder()" class="w-full bg-amber-400 hover:bg-amber-500 font-black text-slate-900 py-3 rounded-xl shadow-lg text-base tracking-wide uppercase transition">
+                    🚀 PESAN MAS TOLONG SEKARANG
+                </button>
+            </div>
+
+            <!-- Customer Active Order Status Card -->
+            <div id="cust-active-order-card" class="hidden card-ui bg-white p-4 rounded-xl shadow border-2 border-amber-400">
+                <div class="flex justify-between items-center border-b pb-2 mb-2">
+                    <span class="font-black text-sm text-gray-800">Status Orderan Anda</span>
+                    <span id="cust-order-status-badge" class="bg-amber-100 text-amber-800 text-xs px-2.5 py-1 rounded-full font-bold">MENCARI DRIVER</span>
+                </div>
+                <div id="cust-driver-info-box" class="hidden bg-gray-50 p-2.5 rounded-lg mb-3 flex items-center space-x-3">
+                    <img id="cust-assigned-driver-photo" src="https://via.placeholder.com/50" class="w-12 h-12 rounded-full border border-black object-cover">
+                    <div>
+                        <h5 id="cust-assigned-driver-name" class="font-extrabold text-xs text-gray-900">Nama Driver</h5>
+                        <p id="cust-assigned-driver-plat" class="text-xs font-mono font-bold text-amber-700">AG 1234 XX</p>
+                        <a id="cust-assigned-driver-wa" href="#" target="_blank" class="text-[11px] font-bold text-green-600 hover:underline">💬 Hubungi via WhatsApp</a>
+                    </div>
+                </div>
+                <!-- Real-time Struk Jastip Display from Driver -->
+                <div id="cust-struk-display-box" class="hidden bg-yellow-50 border border-yellow-300 p-2.5 rounded-lg mb-3">
+                    <p class="text-xs font-extrabold text-amber-900 mb-1">📸 Foto Struk Belanja dari Driver:</p>
+                    <img id="cust-struk-img" src="" class="w-full max-h-48 object-contain rounded border border-yellow-400 mb-2">
+                    <div class="bill-box-yellow p-2 rounded text-center">
+                        <span class="text-xs font-extrabold block">TOTAL CASH BAYAR DI TEMPAT (Barang + Ongkir):</span>
+                        <span id="cust-grand-total-cash" class="text-lg font-black text-black">Rp 0</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== 3. DASBOR MITRA DRIVER ==================== -->
+        <section id="sec-driver-dashboard" class="hidden space-y-4">
+            <!-- Driver Official Identity Card (Tertempel Resmi) -->
+            <div id="driver-id-card" class="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-4 rounded-xl shadow-xl border-2 border-amber-400 relative overflow-hidden">
+                <div class="absolute -right-6 -bottom-6 opacity-10 text-8xl font-black">MT</div>
+                <div class="flex items-center space-x-3 relative z-10">
+                    <img id="drv-card-photo" src="https://via.placeholder.com/60" class="w-14 h-14 rounded-full border-2 border-amber-400 object-cover">
+                    <div>
+                        <span id="drv-card-status" class="bg-green-500 text-slate-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">AKTIF</span>
+                        <h3 id="drv-card-name" class="font-extrabold text-base leading-tight">Nama Driver</h3>
+                        <p id="drv-card-id" class="text-xs font-mono text-amber-300 font-bold">ID: DRV-890123</p>
+                        <p id="drv-card-plat" class="text-xs font-mono font-extrabold text-gray-300">AG 1234 XX</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Driver Action Controls & Daily Summary -->
+            <div class="grid grid-cols-2 gap-2">
+                <div class="card-ui bg-white p-3 rounded-xl shadow text-center border">
+                    <p class="text-[11px] font-bold text-gray-500 uppercase">Saldo Deposit</p>
+                    <p id="drv-deposit-amount" class="text-base font-black text-slate-900">Rp 50.000</p>
+                </div>
+                <div class="card-ui bg-white p-3 rounded-xl shadow text-center border">
+                    <p class="text-[11px] font-bold text-gray-500 uppercase">Bersih Hari Ini</p>
+                    <p id="drv-daily-income" class="text-base font-black text-green-600">Rp 0</p>
+                </div>
+            </div>
+
+            <button onclick="toggleDriverProfileModal()" class="w-full bg-slate-800 hover:bg-slate-900 text-amber-400 font-bold py-2 rounded-xl text-xs flex items-center justify-center space-x-2 border border-slate-700">
+                <span>⚙️ Pengaturan Driver (Foto, Pass, WA)</span>
+            </button>
+
+            <!-- Radar Available Orders List -->
+            <div class="card-ui bg-white p-4 rounded-xl shadow border border-gray-100">
+                <h4 class="font-extrabold text-sm mb-3 text-gray-800 flex justify-between items-center">
+                    <span>📡 Radar Orderan Masuk</span>
+                    <span class="text-xs font-normal text-gray-500">Kertosono - Jombang</span>
+                </h4>
+                <div id="driver-orders-list" class="space-y-3">
+                    <!-- Dynamic Orders List -->
+                    <p class="text-xs text-gray-400 text-center py-4">Belum ada orderan baru yang tersedia...</p>
+                </div>
+            </div>
+
+            <!-- Active Order Processing Modal/Box -->
+            <div id="driver-active-process-box" class="hidden card-ui bg-white p-4 rounded-xl shadow-lg border-2 border-amber-400 space-y-3">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <span class="font-black text-sm text-gray-800">Orderan Sedang Dikerjakan</span>
+                    <span id="drv-active-order-type" class="bg-amber-400 text-slate-900 text-xs font-extrabold px-2.5 py-0.5 rounded">OJEK</span>
+                </div>
+                
+                <div class="text-xs space-y-1 text-gray-700">
+                    <p><strong>Pelanggan:</strong> <span id="drv-active-cust-name">Budi</span> (<a id="drv-active-cust-wa" href="#" target="_blank" class="text-green-600 font-bold">💬 Chat WA</a>)</p>
+                    <p><strong>Jemput / Toko:</strong> <span id="drv-active-pickup">Pasar Kertosono</span></p>
+                    <p><strong>Tujuan:</strong> <span id="drv-active-dropoff">Jl. Raya Jombang</span></p>
+                    <p><strong>Catatan:</strong> <span id="drv-active-notes">-</span></p>
+                </div>
+
+                <!-- Google Maps Turn-By-Turn Navigation Button -->
+                <button onclick="openDriverGoogleMapsRoute()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-extrabold py-2.5 rounded-xl text-xs flex items-center justify-center space-x-2 shadow">
+                    <span>🗺️ Buka Rute Google Maps Akurat (Driver -> Jemput -> Antar)</span>
+                </button>
+
+                <!-- Jastip Receipt Upload Box -->
+                <div class="bg-amber-50 p-3 rounded-xl border border-amber-300 space-y-2">
+                    <label class="block text-xs font-extrabold text-amber-900">🛍️ Upload Struk Belanja & Nominal Nota (Khusus Jastip):</label>
+                    <input type="file" id="drv-struk-file" accept="image/*" class="w-full text-xs">
+                    <input type="number" id="drv-struk-amount" placeholder="Total Uang di Struk Rp..." class="w-full px-3 py-1.5 border rounded-lg text-xs">
+                    <button onclick="submitDriverJastipStruk()" class="w-full bg-slate-900 text-white font-bold py-1.5 rounded-lg text-xs">Kirim Struk Ke Pelanggan</button>
+                </div>
+
+                <!-- Complete Order Button -->
+                <button onclick="completeCurrentOrder()" class="w-full bg-green-500 hover:bg-green-600 font-extrabold text-slate-900 py-3 rounded-xl shadow text-sm uppercase">
+                    ✅ SELESAIKAN ORDERAN (TERIMA CASH)
+                </button>
+            </div>
+        </section>
+
+
+        <!-- ==================== 4. DASBOR PUSAT KONTROL ADMIN ==================== -->
+        <section id="sec-admin-dashboard" class="hidden space-y-4">
+            <div class="bg-slate-900 text-white p-4 rounded-xl shadow-xl border-2 border-amber-400">
+                <h3 class="font-black text-lg text-amber-400">🛡️ CONTROL PANEL ADMIN PUSAT</h3>
+                <p class="text-xs text-gray-400">Pengelolaan Akses, Verifikasi Berkas, Branding & Keuangan</p>
+            </div>
+
+            <!-- Branding & Layout Customization Manager -->
+            <div class="card-ui bg-white p-4 rounded-xl shadow border space-y-3">
+                <h4 class="font-extrabold text-sm text-gray-800">🎨 Pengaturan Branding Logo & Tata Letak</h4>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">URL Logo Aplikasi Baru</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="admin-logo-url-input" placeholder="https://..." class="flex-1 px-3 py-1.5 border rounded-lg text-xs">
+                        <button onclick="updateAppLogoAdmin()" class="bg-amber-400 font-bold text-xs px-3 py-1.5 rounded-lg">Update Logo</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Gaya Tata Letak Tampilan (Layout)</label>
+                    <select id="admin-layout-select" onchange="changeAppLayoutAdmin(this.value)" class="w-full px-3 py-1.5 border rounded-lg text-xs font-bold">
+                        <option value="layout-modern">Layout Modern Rounded (Default)</option>
+                        <option value="layout-compact">Layout Minimalis Compact</option>
+                        <option value="layout-bold">Layout Card Bold High-Contrast</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Operational Tariff & Promo Control Manager -->
+            <div class="card-ui bg-white p-4 rounded-xl shadow border space-y-3">
+                <h4 class="font-extrabold text-sm text-gray-800">💰 Pengaturan Tarif & Voucher Promo Real-Time</h4>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                        <label class="font-bold">Tarif Min (0-3 km)</label>
+                        <input type="number" id="adm-tarif-min" value="6000" class="w-full px-2 py-1 border rounded">
+                    </div>
+                    <div>
+                        <label class="font-bold">Tarif / km (>3 km)</label>
+                        <input type="number" id="adm-tarif-km" value="2500" class="w-full px-2 py-1 border rounded">
+                    </div>
+                    <div>
+                        <label class="font-bold">Jastip Pasar</label>
+                        <input type="number" id="adm-tarif-jastip" value="3000" class="w-full px-2 py-1 border rounded">
+                    </div>
+                    <div>
+                        <label class="font-bold">Bonus Driver</label>
+                        <input type="number" id="adm-bonus-driver" value="15000" class="w-full px-2 py-1 border rounded">
+                    </div>
+                </div>
+                <button onclick="saveAdminTariffSettings()" class="w-full bg-slate-900 text-white font-bold py-2 rounded-lg text-xs">Simpan Pengaturan Tarif</button>
+                
+                <div class="pt-2 border-t">
+                    <label class="block text-xs font-bold text-gray-700 mb-1">Buat Voucher Promo Baru</label>
+                    <div class="flex space-x-2">
+                        <input type="text" id="adm-vouch-code" placeholder="KODE" class="uppercase px-2 py-1 border rounded text-xs w-24">
+                        <input type="number" id="adm-vouch-disc" placeholder="Diskon Rp" class="px-2 py-1 border rounded text-xs flex-1">
+                        <button onclick="createNewVoucherAdmin()" class="bg-green-600 text-white font-bold text-xs px-3 py-1 rounded">Buat</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Users & Driver Verification Control Table -->
+            <div class="card-ui bg-white p-4 rounded-xl shadow border">
+                <h4 class="font-extrabold text-sm mb-3 text-gray-800">👥 Kelola Pengguna & Status 3 Tombol Khusus</h4>
+                <div id="admin-user-list-container" class="space-y-3 max-h-96 overflow-y-auto">
+                    <!-- Dynamic User Rows -->
+                </div>
+            </div>
+
+            <!-- Financial Ledger & Master Reset -->
+            <div class="card-ui bg-white p-4 rounded-xl shadow border space-y-3">
+                <h4 class="font-extrabold text-sm text-gray-800">📊 Buku Kas & Master Reset</h4>
+                <div class="bg-gray-100 p-3 rounded-lg text-xs space-y-1">
+                    <p>Total Accumulation Platform Commission (10%): <strong id="admin-total-commission" class="text-green-700">Rp 0</strong></p>
+                </div>
+                <button onclick="resetMasterDatabaseData()" class="w-full bg-red-600 hover:bg-red-700 text-white font-black py-2.5 rounded-xl text-xs uppercase tracking-wider">
+                    ⚠️ RESET TOTAL DATABASE MASTER
+                </button>
+            </div>
+        </section>
+
+
+        <!-- ==================== 5. MODAL VERIFIKASI IDENTITAS PELANGGAN ==================== -->
+        <div id="modal-cust-profile" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h4 class="font-extrabold text-sm text-gray-900">🛡️ Pengaturan Identitas Resmi (E-KTP)</h4>
+                    <button onclick="toggleCustomerProfileModal()" class="text-gray-400 font-bold">✕</button>
+                </div>
+                <form onsubmit="saveCustomerProfileVerif(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-bold mb-1">Verifikasi Email Aktif</label>
+                        <input type="email" id="cust-modal-email" required class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Nama Lengkap Sesuai KTP</label>
+                        <input type="text" id="cust-modal-ktp-name" required class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Alamat Lengkap KTP / Domisili</label>
+                        <textarea id="cust-modal-address" rows="2" required class="w-full px-3 py-2 border rounded-lg"></textarea>
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Unggah Foto E-KTP Asli</label>
+                        <input type="file" id="cust-modal-ktp-file" accept="image/*" class="w-full">
+                    </div>
+                    <div class="bg-gray-50 p-2 rounded text-[11px] text-gray-500">
+                        🔒 Data E-KTP terkunci dan HANYA BISA DILIHAT OLEH ADMIN PUSAT untuk verifikasi pencegahan order fiktif.
+                    </div>
+                    <button type="submit" class="w-full bg-amber-400 font-extrabold py-2.5 rounded-lg text-slate-900">SIMPAN BERKAS VERIFIKASI</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- ==================== 6. MODAL PENGATURAN DRIVER ==================== -->
+        <div id="modal-driver-profile" class="fixed inset-0 bg-black/60 z-50 hidden flex items-center justify-center p-4">
+            <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-3">
+                <div class="flex justify-between items-center border-b pb-2">
+                    <h4 class="font-extrabold text-sm text-gray-900">⚙️ Pengaturan Profil Driver</h4>
+                    <button onclick="toggleDriverProfileModal()" class="text-gray-400 font-bold">✕</button>
+                </div>
+                <form onsubmit="saveDriverProfileSettings(event)" class="space-y-3 text-xs">
+                    <div>
+                        <label class="block font-bold mb-1">Ubah Foto Profil Resmi</label>
+                        <input type="file" id="drv-modal-photo-file" accept="image/*" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Ubah Nomor WhatsApp</label>
+                        <input type="tel" id="drv-modal-phone" required class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <div>
+                        <label class="block font-bold mb-1">Ubah Password Akun</label>
+                        <input type="password" id="drv-modal-pass" placeholder="Isi jika ingin merubah" class="w-full px-3 py-2 border rounded-lg">
+                    </div>
+                    <button type="submit" class="w-full bg-slate-900 text-white font-bold py-2.5 rounded-lg">UPDATE PROFIL DRIVER</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- LOGOUT FOOTER BUTTON -->
+        <div id="logout-btn-container" class="hidden text-center mt-6">
+            <button onclick="handleLogout()" class="bg-red-100 hover:bg-red-200 text-red-700 font-extrabold text-xs px-4 py-2 rounded-xl transition">
+                🚪 Keluar / Lock Session
+            </button>
+        </div>
+
+    </main>
+
+    <!-- APPLICATION LOGIC & FIREBASE INITIALIZATION -->
+    <script>
+        // FIREBASE CONFIGURATION (Compatible Version)
+        const firebaseConfig = {
+            apiKey: "AIzaSyDummyKey_MasTolongKertosono",
+            authDomain: "mas-tolong-kertosono.firebaseapp.com",
+            databaseURL: "https://mas-tolong-kertosono-default-rtdb.firebaseio.com",
+            projectId: "mas-tolong-kertosono",
+            storageBucket: "mas-tolong-kertosono.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        // APP STATE & OPERATIONAL TARIFF DEFAULT (Rp 6.000 Min, Rp 2.500/km, Jastip +3.000)
+        let currentUser = null;
+        let selectedService = 'OJEK';
+        let activeTariff = {
+            minTariff: 6000,    // 0 - 3 km
+            ratePerKm: 2500,    // Di atas 3 km
+            jastipFee: 3000     // Belanja Pasar / Sembako
+        };
+        let activeVoucherDiscount = 0;
+        let map = null, pickupMarker = null, dropoffMarker = null;
+
+        // INITIALIZATION ON LOAD
+        window.addEventListener('DOMContentLoaded', () => {
+            initLeafletMap();
+            loadAppBrandingSettings();
+            checkSavedSession();
+        });
+
+        // 1. LEAFLET OPENSTREETMAP INITIALIZATION
+        function initLeafletMap() {
+            // Default Center: Kertosono Square (-7.5925, 112.1008)
+            map = L.map('map').setView([-7.5925, 112.1008], 14);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap'
+            }).addTo(map);
+
+            pickupMarker = L.marker([-7.5925, 112.1008], {draggable: true}).addTo(map).bindPopup("Titik Jemput");
+            dropoffMarker = L.marker([-7.5800, 112.1100], {draggable: true}).addTo(map).bindPopup("Titik Tujuan");
+
+            pickupMarker.on('dragend', calculateTariffEstimate);
+            dropoffMarker.on('dragend', calculateTariffEstimate);
+            calculateTariffEstimate();
+        }
+
+        // 2. TARIFF CALCULATION LOGIC
+        function calculateTariffEstimate() {
+            if (!pickupMarker || !dropoffMarker) return;
+
+            const pLat = pickupMarker.getLatLng();
+            const dLat = dropoffMarker.getLatLng();
+            
+            // Haversine Distance Formula (km)
+            const R = 6371;
+            const dLatRad = (dLat.lat - pLat.lat) * Math.PI / 180;
+            const dLonRad = (dLat.lng - pLat.lng) * Math.PI / 180;
+            const a = Math.sin(dLatRad/2) * Math.sin(dLatRad/2) +
+                      Math.cos(pLat.lat * Math.PI / 180) * Math.cos(dLat.lat * Math.PI / 180) *
+                      Math.sin(dLonRad/2) * Math.sin(dLonRad/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            let distance = R * c;
+            if (distance < 0.5) distance = 0.5; // Minimum 0.5 km threshold
+
+            document.getElementById('calc-distance-text').innerText = `Estimasi Jarak: ${distance.toFixed(1)} km`;
+
+            // Tariff Calculation Rule: Rp 6.000 (0-3km), +Rp 2.500/km (>3km), Jastip +Rp 3.000
+            let totalOngkir = 0;
+            if (distance <= 3) {
+                totalOngkir = activeTariff.minTariff;
+            } else {
+                totalOngkir = activeTariff.minTariff + Math.ceil(distance - 3) * activeTariff.ratePerKm;
+            }
+
+            if (selectedService === 'SHOP') {
+                totalOngkir += activeTariff.jastipFee;
+            }
+
+            totalOngkir = Math.max(0, totalOngkir - activeVoucherDiscount);
+            document.getElementById('calc-total-ongkir').innerText = `Rp ${totalOngkir.toLocaleString('id-ID')}`;
+        }
+
+        // 3. SERVICE SELECTION HANDLER
+        function selectService(serviceType) {
+            selectedService = serviceType;
+            document.querySelectorAll('.srv-choice-btn').forEach(btn => {
+                btn.classList.remove('border-amber-400', 'bg-amber-50');
+                btn.classList.add('border-gray-200');
+            });
+            document.getElementById(`srv-btn-${serviceType}`).classList.add('border-amber-400', 'bg-amber-50');
+
+            const jastipNote = document.getElementById('tariff-jastip-note');
+            if (serviceType === 'SHOP') {
+                jastipNote.classList.remove('hidden');
+            } else {
+                jastipNote.classList.add('hidden');
+            }
+
+            calculateTariffEstimate();
+        }
+
+        // 4. AUTHENTICATION TAB SWITCHER
+        function switchAuthTab(tab) {
+            document.getElementById('form-login').classList.add('hidden');
+            document.getElementById('form-reg-customer').classList.add('hidden');
+            document.getElementById('form-reg-driver').classList.add('hidden');
+
+            document.getElementById('tab-btn-login').classList.remove('border-amber-500', 'text-amber-600');
+            document.getElementById('tab-btn-reg-cust').classList.remove('border-amber-500', 'text-amber-600');
+            document.getElementById('tab-btn-reg-drv').classList.remove('border-amber-500', 'text-amber-600');
+
+            if (tab === 'login') {
+                document.getElementById('form-login').classList.remove('hidden');
+                document.getElementById('tab-btn-login').classList.add('border-amber-500', 'text-amber-600');
+            } else if (tab === 'reg-customer') {
+                document.getElementById('form-reg-customer').classList.remove('hidden');
+                document.getElementById('tab-btn-reg-cust').classList.add('border-amber-500', 'text-amber-600');
+            } else if (tab === 'reg-driver') {
+                document.getElementById('form-reg-driver').classList.remove('hidden');
+                document.getElementById('tab-btn-reg-drv').classList.add('border-amber-500', 'text-amber-600');
+            }
+        }
+
+        // 5. LOGIN HANDLER (ADMIN PUSAT RAHASIA: AhmadadipMST0000)
+        function handleLogin(e) {
+            e.preventDefault();
+            const id = document.getElementById('login-id').value.trim();
+            const pass = document.getElementById('login-pass').value.trim();
+
+            // Secret Backend Logic Check for Admin Pusat
+            if (id === 'AhmadadipMST0000' && pass === '081933Ae') {
+                currentUser = { id: 'AhmadadipMST0000', name: 'Admin Pusat', role: 'ADMIN' };
+                saveSessionAndRender();
+                return;
+            }
+
+            // Normal User/Driver DB Check Simulation
+            db.ref('users/' + id).once('value', snapshot => {
+                const userData = snapshot.val();
+                if (userData && userData.password === pass) {
+                    if (userData.status === 'NONAKTIF') {
+                        alert('Akun Anda sedang dinonaktifkan oleh Admin.');
+                        return;
+                    }
+                    currentUser = userData;
+                    saveSessionAndRender();
+                } else {
+                    // Fallback Demo Login for instant testing
+                    currentUser = {
+                        id: id,
+                        name: id.includes('drv') ? 'Mitra Driver' : 'Pelanggan',
+                        role: id.includes('drv') ? 'DRIVER' : 'CUSTOMER',
+                        plat: 'AG 5678 KK',
+                        deposit: 50000
+                    };
+                    saveSessionAndRender();
+                }
+            });
+        }
+
+        // 6. SESSION & ROLE RENDERER
+        function saveSessionAndRender() {
+            localStorage.setItem('mt_session', JSON.stringify(currentUser));
+            document.getElementById('sec-auth').classList.add('hidden');
+            document.getElementById('logout-btn-container').classList.remove('hidden');
+
+            document.getElementById('sec-customer-dashboard').classList.add('hidden');
+            document.getElementById('sec-driver-dashboard').classList.add('hidden');
+            document.getElementById('sec-admin-dashboard').classList.add('hidden');
+
+            if (currentUser.role === 'ADMIN') {
+                document.getElementById('sec-admin-dashboard').classList.remove('hidden');
+                loadAdminUserList();
+            } else if (currentUser.role === 'DRIVER') {
+                document.getElementById('sec-driver-dashboard').classList.remove('hidden');
+                document.getElementById('drv-card-name').innerText = currentUser.name;
+                document.getElementById('drv-card-plat').innerText = currentUser.plat || 'AG ---- XX';
+                listenDriverOrders();
+            } else {
+                document.getElementById('sec-customer-dashboard').classList.remove('hidden');
+                document.getElementById('cust-welcome-name').innerText = `Halo, ${currentUser.name}!`;
+            }
+        }
+
+        function checkSavedSession() {
+            const saved = localStorage.getItem('mt_session');
+            if (saved) {
+                currentUser = JSON.parse(saved);
+                saveSessionAndRender();
+            }
+        }
+
+        function handleLogout() {
+            localStorage.removeItem('mt_session');
+            currentUser = null;
+            location.reload();
+        }
+
+        // 7. ADMIN 3-BUTTON STATUS CONTROL HANDLER (DEMO, ROLE TOGGLE, NONAKTIF)
+        function setAdminUserStatus(userId, newStatus, newRole) {
+            let updateData = {};
+            if (newStatus) updateData.status = newStatus;
+            if (newRole) updateData.role = newRole;
+
+            db.ref('users/' + userId).update(updateData, () => {
+                alert(`Status/Role akun ${userId} berhasil diperbarui!`);
+                loadAdminUserList();
+            });
+        }
+
+        function loadAdminUserList() {
+            const container = document.getElementById('admin-user-list-container');
+            container.innerHTML = '<p class="text-xs text-gray-400">Memuat data pengguna...</p>';
+
+            db.ref('users').once('value', snapshot => {
+                container.innerHTML = '';
+                const users = snapshot.val() || {};
+                
+                Object.keys(users).forEach(uid => {
+                    const u = users[uid];
+                    const div = document.createElement('div');
+                    div.className = 'p-2.5 border rounded-lg text-xs bg-gray-50 flex flex-col space-y-1.5';
+                    div.innerHTML = `
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <strong>${u.name || uid}</strong> (${u.phone || '-'})
+                                <br><span class="text-[10px] text-gray-500">Role: ${u.role} | Status: ${u.status || 'AKTIF'}</span>
+                            </div>
+                            <a href="https://wa.me/${u.phone}" target="_blank" class="text-green-600 font-bold text-xs">💬 WA</a>
+                        </div>
+                        <!-- 3 Tombol Khusus Admin -->
+                        <div class="grid grid-cols-3 gap-1 pt-1 border-t">
+                            <button onclick="setAdminUserStatus('${uid}', 'AKTIF', null)" class="bg-green-500 text-white font-bold py-1 rounded text-[10px]">🟢 DEMO/AKTIF</button>
+                            <button onclick="setAdminUserStatus('${uid}', null, '${u.role === 'DRIVER' ? 'CUSTOMER' : 'DRIVER'}')" class="bg-amber-500 text-slate-900 font-bold py-1 rounded text-[10px]">🟡 TOGGLE ROLE</button>
+                            <button onclick="setAdminUserStatus('${uid}', 'NONAKTIF', null)" class="bg-red-600 text-white font-bold py-1 rounded text-[10px]">🔴 NONAKTIF</button>
+                        </div>
+                    `;
+                    container.appendChild(div);
+                });
+            });
+        }
+
+        // 8. BRANDING LOGO & TATA LETAK MANAGER
+        function updateAppLogoAdmin() {
+            const url = document.getElementById('admin-logo-url-input').value.trim();
+            if (!url) return;
+            db.ref('settings/branding/logoUrl').set(url);
+            alert('Logo berhasil diperbarui di seluruh sistem!');
+        }
+
+        function changeAppLayoutAdmin(layoutStyle) {
+            document.body.className = `${layoutStyle} text-gray-800 antialiased min-h-screen pb-12`;
+            db.ref('settings/branding/layoutStyle').set(layoutStyle);
+        }
+
+        function loadAppBrandingSettings() {
+            db.ref('settings/branding').on('value', snapshot => {
+                const b = snapshot.val();
+                if (b) {
+                    if (b.logoUrl) {
+                        document.getElementById('app-logo-header').src = b.logoUrl;
+                        document.getElementById('app-logo-auth').src = b.logoUrl;
+                    }
+                    if (b.layoutStyle) {
+                        document.body.className = `${b.layoutStyle} text-gray-800 antialiased min-h-screen pb-12`;
+                        document.getElementById('admin-layout-select').value = b.layoutStyle;
+                    }
+                }
+            });
+        }
+
+        // 9. GOOGLE MAPS NAVIGATION TURN-BY-TURN FOR DRIVER
+        function openDriverGoogleMapsRoute() {
+            const pLat = pickupMarker.getLatLng();
+            const dLat = dropoffMarker.getLatLng();
+            const gmapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${pLat.lat},${pLat.lng}&destination=${dLat.lat},${dLat.lng}&travelmode=driving`;
+            window.open(gmapsUrl, '_blank');
+        }
+
+        // MODAL TOGGLES
+        function toggleCustomerProfileModal() {
+            document.getElementById('modal-cust-profile').classList.toggle('hidden');
+        }
+        function toggleDriverProfileModal() {
+            document.getElementById('modal-driver-profile').classList.toggle('hidden');
+        }
+
+        // GOOGLE MAPS AUTO-SUGGEST DUMMY STUB
+        function autoSuggestAddress(query, type) {
+            // Automatic location suggest trigger for Kertosono - Jombang
+        }
+
+        function saveAdminTariffSettings() {
+            activeTariff.minTariff = parseInt(document.getElementById('adm-tarif-min').value);
+            activeTariff.ratePerKm = parseInt(document.getElementById('adm-tarif-km').value);
+            activeTariff.jastipFee = parseInt(document.getElementById('adm-tarif-jastip').value);
+            alert('Pengaturan tarif berhasil disimpan!');
+            calculateTariffEstimate();
+        }
+
+        function resetMasterDatabaseData() {
+            if (confirm('APAKAH ANDA YAKIN INGIN MERESET TOTAL DATABASE MASTER TRANSAKSI?')) {
+                db.ref('orders').remove();
+                alert('Database master riwayat orderan berhasil dibersihkan!');
+            }
+        }
+    </script>
+</body>
+</html>
